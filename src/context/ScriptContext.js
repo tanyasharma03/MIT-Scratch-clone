@@ -1,4 +1,4 @@
-import { createContext, useState, useCallback } from 'react';
+import { createContext, useState, useCallback, useEffect } from 'react';
 
 export const ScriptContext = createContext();
 
@@ -26,12 +26,24 @@ const SPRITE_TEMPLATES = [
 ];
 
 
-const INITIAL_ACTIVE_SPRITES = [];
+const INITIAL_ACTIVE_SPRITES = [
+  {
+    id: 'tom-default',
+    type: 'tom',
+    name: 'Tom',
+    image: 'https://en.scratch-wiki.info/w/images/ScratchCat3.0.svg',
+    position: { x: 0, y: 0 },
+    rotation: 0,
+    message: { text: '', type: '' },
+    scripts: []
+  }
+];
 
 function ScriptProvider({ children }) {
   const [activeSprites, setActiveSprites] = useState(INITIAL_ACTIVE_SPRITES);
-  const [selectedSpriteId, setSelectedSpriteId] = useState(null);
+  const [selectedSpriteId, setSelectedSpriteId] = useState('tom-default');
   const [isRunning, setIsRunning] = useState(false);
+  const [swappedPairs, setSwappedPairs] = useState({});
 
   // Get the currently selected sprite
   const selectedSprite = activeSprites.find(s => s.id === selectedSpriteId) || activeSprites[0];
@@ -156,6 +168,62 @@ function ScriptProvider({ children }) {
       return newSprites;
     });
   }, [selectedSpriteId]);
+
+  // Hero Feature: Collision-Based Animation Swap
+  const swapIfCollision = useCallback((currentSprites) => {
+    const snapshot = [...currentSprites];
+    let newSwaps = null;
+
+    for (let i = 0; i < snapshot.length; i++) {
+      for (let j = i + 1; j < snapshot.length; j++) {
+        const a = snapshot[i];
+        const b = snapshot[j];
+
+        if (!a.position || !b.position) {
+          continue;
+        }
+
+        const pairKey = [a.id, b.id].sort().join('-');
+
+        // Calculate distance between sprites
+        const distance = Math.hypot(
+          a.position.x - b.position.x,
+          a.position.y - b.position.y
+        );
+
+        // Collision detected: swap animations when distance <= 80px
+        if (distance <= 80 && !swappedPairs[pairKey]) {
+          setActiveSprites((prev) => {
+            return prev.map((sprite) => {
+              if (sprite.id === a.id) {
+                return { ...sprite, scripts: b.scripts };
+              } else if (sprite.id === b.id) {
+                return { ...sprite, scripts: a.scripts };
+              }
+              return sprite;
+            });
+          });
+
+          if (!newSwaps) newSwaps = { ...swappedPairs };
+          newSwaps[pairKey] = true;
+        }
+        else if (distance > 80 && swappedPairs[pairKey]) {
+          if (!newSwaps) newSwaps = { ...swappedPairs };
+          delete newSwaps[pairKey];
+        }
+      }
+    }
+
+    if (newSwaps) {
+      setSwappedPairs(newSwaps);
+    }
+  }, [swappedPairs]);
+
+  useEffect(() => {
+    if (activeSprites.length >= 2) {
+      swapIfCollision(activeSprites);
+    }
+  }, [activeSprites, swapIfCollision]);
 
   const value = {
     spriteTemplates: SPRITE_TEMPLATES,
