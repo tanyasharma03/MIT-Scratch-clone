@@ -94,21 +94,22 @@ const ScriptArea = ({ scripts, onRemove, onUpdate, onAdd, onReorder }) => {
   };
 
   return (
-    <div
-      className={`bg-[#1a1a2e] border border-[#2e2e4d] rounded-xl p-5 overflow-y-auto transition-all ${
-        isDraggingOver ? 'border-[#4C97FF] border-2 bg-[#1f1f3a]' : ''
-      }`}
-      onDrop={handleDrop}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-    >
-      <h2 className="text-lg text-gray-100 mb-5 font-semibold">Script Area</h2>
-      <div className="flex flex-col gap-2 min-h-[100px]">
+    <div className="bg-gradient-to-br from-black to-[#1a1a2e] rounded-2xl border border-[#2e2e4d] shadow-2xl p-6 flex flex-col gap-6 overflow-hidden h-full">
+      <h2 className="text-lg text-gray-100 font-semibold">Script Area</h2>
+
+      <div
+        className={`flex-1 bg-white/5 backdrop-blur-md rounded-xl border-2 ${
+          isDraggingOver ? 'border-blue-500 bg-blue-500/10' : 'border-gray-600'
+        } flex flex-col gap-3 px-6 py-8 overflow-auto transition-all duration-200 min-h-[200px]`}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+      >
         {scripts.length === 0 ? (
-          <div className={`text-center text-gray-400 py-10 px-5 text-sm leading-relaxed ${
-            isDraggingOver ? 'text-[#4C97FF]' : ''
+          <div className={`text-center py-10 px-5 text-sm leading-relaxed transition-colors ${
+            isDraggingOver ? 'text-blue-400' : 'text-gray-400'
           }`}>
-            Drag blocks here or click blocks to add them
+            🧊 Drop blocks here or click blocks to add them
           </div>
         ) : (
           scripts.map((script, index) => (
@@ -116,22 +117,24 @@ const ScriptArea = ({ scripts, onRemove, onUpdate, onAdd, onReorder }) => {
               {dragOverIndex === index && (
                 <div className="h-1 bg-[#4C97FF] rounded-full mb-2 animate-pulse" />
               )}
-              <div
-                draggable
-                onDragStart={(e) => handleBlockDragStart(e, script)}
-                onDragOver={(e) => handleBlockDragOver(e, index)}
-                onDrop={(e) => handleBlockDrop(e, index)}
-                onDragEnd={handleBlockDragEnd}
-                className="relative py-3 px-4 pr-10 rounded-lg text-white font-medium text-[13px] shadow-md transition-all duration-200 animate-[slideIn_0.3s_ease-out] hover:translate-x-1 hover:shadow-lg cursor-move active:opacity-50"
-                style={{ backgroundColor: script.color }}
-              >
-              <button
-                className="absolute top-2 right-2 bg-black/20 text-white border-none rounded-full w-6 h-6 cursor-pointer text-lg leading-none flex items-center justify-center transition-all duration-200 hover:bg-black/40 hover:scale-110 active:scale-95"
-                onClick={() => onRemove(script.id)}
-                title="Remove block"
-              >
-                ×
-              </button>
+              <div className="relative w-full max-w-[330px] mx-auto group">
+                <button
+                  onClick={() => onRemove(script.id)}
+                  className="absolute -right-2 -top-2 w-5 h-5 rounded-full bg-red-600 text-white text-xs font-bold flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-red-500 transition-opacity z-10 shadow-lg"
+                  title="Delete block"
+                >
+                  ×
+                </button>
+
+                <div
+                  draggable
+                  onDragStart={(e) => handleBlockDragStart(e, script)}
+                  onDragOver={(e) => handleBlockDragOver(e, index)}
+                  onDrop={(e) => handleBlockDrop(e, index)}
+                  onDragEnd={handleBlockDragEnd}
+                  className="py-3 px-4 rounded-lg text-white font-medium text-[13px] shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-[1.02] cursor-move active:opacity-50 active:scale-95"
+                  style={{ backgroundColor: script.color }}
+                >
 
               <div className="flex items-center gap-1.5 flex-wrap">
                 <span className="font-semibold">{script.label}</span>
@@ -235,8 +238,9 @@ const ScriptArea = ({ scripts, onRemove, onUpdate, onAdd, onReorder }) => {
                   </>
                 )}
               </div>
+                </div>
+              </div>
             </div>
-          </div>
           ))
         )}
       </div>

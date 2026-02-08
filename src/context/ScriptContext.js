@@ -1,73 +1,181 @@
-import React, { createContext, useState, useCallback } from 'react';
+import { createContext, useState, useCallback } from 'react';
 
 export const ScriptContext = createContext();
 
+const SPRITE_TEMPLATES = [
+  {
+    type: 'tom',
+    name: 'Tom',
+    image: 'https://en.scratch-wiki.info/w/images/ScratchCat3.0.svg',
+  },
+  {
+    type: 'gobo',
+    name: 'Gobo',
+    image: 'https://cdn.assets.scratch.mit.edu/internalapi/asset/f505a4e9eab5e40e2669a4462dba4c90.svg/get/',
+  },
+  {
+    type: 'dinosaur',
+    name: 'Dinosaur',
+    image: 'https://cdn.assets.scratch.mit.edu/internalapi/asset/45b02fbd582c15a50e1953830b59b377.svg/get/',
+  },
+  {
+    type: 'apple',
+    name: 'Apple',
+    image: 'https://cdn.assets.scratch.mit.edu/internalapi/asset/3826a4091a33e4d26f87a2fac7cf796b.svg/get/',
+  }
+];
+
+
+const INITIAL_ACTIVE_SPRITES = [];
+
 function ScriptProvider({ children }) {
-  const [scripts, setScripts] = useState([]);
-  const [spritePosition, setSpritePosition] = useState({ x: 0, y: 0 });
-  const [spriteRotation, setSpriteRotation] = useState(0);
+  const [activeSprites, setActiveSprites] = useState(INITIAL_ACTIVE_SPRITES);
+  const [selectedSpriteId, setSelectedSpriteId] = useState(null);
   const [isRunning, setIsRunning] = useState(false);
-  const [spriteMessage, setSpriteMessage] = useState({ text: '', type: '' }); // type: 'say' or 'think'
+
+  // Get the currently selected sprite
+  const selectedSprite = activeSprites.find(s => s.id === selectedSpriteId) || activeSprites[0];
 
   const addScript = useCallback((block) => {
     const newBlock = { ...block, id: Date.now() };
-    delete newBlock.insertAt; // Remove insertAt from the actual block
+    delete newBlock.insertAt;
 
-    if (block.insertAt !== undefined) {
-      // Insert at specific position
-      setScripts((prev) => {
-        const newScripts = [...prev];
-        newScripts.splice(block.insertAt, 0, newBlock);
-        return newScripts;
-      });
-    } else {
-      // Add to end
-      setScripts((prev) => [...prev, newBlock]);
-    }
-  }, []);
+    setActiveSprites((prev) =>
+      prev.map((sprite) =>
+        sprite.id === selectedSpriteId
+          ? {
+              ...sprite,
+              scripts: block.insertAt !== undefined
+                ? [...sprite.scripts.slice(0, block.insertAt), newBlock, ...sprite.scripts.slice(block.insertAt)]
+                : [...sprite.scripts, newBlock]
+            }
+          : sprite
+      )
+    );
+  }, [selectedSpriteId]);
 
-  const removeScript = useCallback((id) => {
-    setScripts((prev) => prev.filter((script) => script.id !== id));
-  }, []);
+  const removeScript = useCallback((scriptId) => {
+    setActiveSprites((prev) =>
+      prev.map((sprite) =>
+        sprite.id === selectedSpriteId
+          ? { ...sprite, scripts: sprite.scripts.filter((script) => script.id !== scriptId) }
+          : sprite
+      )
+    );
+  }, [selectedSpriteId]);
 
-  const updateScript = useCallback((id, updates) => {
-    setScripts((prev) =>
-      prev.map((script) =>
-        script.id === id ? { ...script, ...updates } : script
+  const updateScript = useCallback((scriptId, updates) => {
+    setActiveSprites((prev) =>
+      prev.map((sprite) =>
+        sprite.id === selectedSpriteId
+          ? {
+              ...sprite,
+              scripts: sprite.scripts.map((script) =>
+                script.id === scriptId ? { ...script, ...updates } : script
+              )
+            }
+          : sprite
+      )
+    );
+  }, [selectedSpriteId]);
+
+  const reorderScripts = useCallback((fromIndex, toIndex) => {
+    setActiveSprites((prev) =>
+      prev.map((sprite) => {
+        if (sprite.id === selectedSpriteId) {
+          const newScripts = [...sprite.scripts];
+          const [removed] = newScripts.splice(fromIndex, 1);
+          newScripts.splice(toIndex, 0, removed);
+          return { ...sprite, scripts: newScripts };
+        }
+        return sprite;
+      })
+    );
+  }, [selectedSpriteId]);
+
+  const updateSpriteState = useCallback((spriteId, updates) => {
+    setActiveSprites((prev) =>
+      prev.map((sprite) =>
+        sprite.id === spriteId ? { ...sprite, ...updates } : sprite
       )
     );
   }, []);
 
-  const reorderScripts = useCallback((fromIndex, toIndex) => {
-    setScripts((prev) => {
-      const newScripts = [...prev];
-      const [removed] = newScripts.splice(fromIndex, 1);
-      newScripts.splice(toIndex, 0, removed);
-      return newScripts;
+  const resetSprite = useCallback(() => {
+    setActiveSprites((prev) =>
+      prev.map((sprite) =>
+        sprite.id === selectedSpriteId
+          ? {
+              ...sprite,
+              position: { x: 0, y: 0 },
+              rotation: 0,
+              message: { text: '', type: '' }
+            }
+          : sprite
+      )
+    );
+  }, [selectedSpriteId]);
+
+  const resetAllSprites = useCallback(() => {
+    setActiveSprites((prev) =>
+      prev.map((sprite) => ({
+        ...sprite,
+        position: { x: 0, y: 0 },
+        rotation: 0,
+        message: { text: '', type: '' }
+      }))
+    );
+  }, []);
+
+  const addSprite = useCallback((spriteType) => {
+    const template = SPRITE_TEMPLATES.find(t => t.type === spriteType);
+    if (!template) return;
+
+    setActiveSprites((prev) => {
+      const newSprite = {
+        id: `${spriteType}-${Date.now()}`,
+        type: spriteType,
+        name: template.name,
+        image: template.image,
+        position: { x: prev.length * 100, y: 0 },
+        rotation: 0,
+        message: { text: '', type: '' },
+        scripts: []
+      };
+      setSelectedSpriteId(newSprite.id);
+      return [...prev, newSprite];
     });
   }, []);
 
-  const resetSprite = useCallback(() => {
-    setSpritePosition({ x: 0, y: 0 });
-    setSpriteRotation(0);
-  }, []);
+  const removeSprite = useCallback((spriteId) => {
+    setActiveSprites((prev) => {
+      const newSprites = prev.filter((sprite) => sprite.id !== spriteId);
+      if (selectedSpriteId === spriteId && newSprites.length > 0) {
+        setSelectedSpriteId(newSprites[0].id);
+      }
+      return newSprites;
+    });
+  }, [selectedSpriteId]);
 
   const value = {
-    scripts,
-    spritePosition,
-    spriteRotation,
+    spriteTemplates: SPRITE_TEMPLATES,
+    activeSprites,
+    sprites: activeSprites,
+    selectedSpriteId,
+    selectedSprite,
     isRunning,
-    spriteMessage,
-    setScripts,
-    setSpritePosition,
-    setSpriteRotation,
+    setActiveSprites,
+    setSelectedSpriteId,
     setIsRunning,
-    setSpriteMessage,
     addScript,
     removeScript,
     updateScript,
     reorderScripts,
+    updateSpriteState,
     resetSprite,
+    resetAllSprites,
+    addSprite,
+    removeSprite,
   };
 
   return (

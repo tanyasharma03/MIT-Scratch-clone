@@ -6,47 +6,57 @@ import { ScriptContext } from './context/ScriptContext';
 
 function App() {
   const {
-    scripts,
-    spritePosition,
-    spriteRotation,
+    sprites,
+    selectedSprite,
     isRunning,
-    spriteMessage,
     addScript,
     removeScript,
     updateScript,
     reorderScripts,
-    resetSprite,
-    setSpritePosition,
-    setSpriteRotation,
+    resetAllSprites,
+    updateSpriteState,
     setIsRunning,
-    setSpriteMessage
   } = useContext(ScriptContext);
 
-  const runAnimations = async () => {
+  // Run animations for all sprites in parallel
+  const runAllAnimations = async () => {
     if (isRunning) return;
     setIsRunning(true);
 
-    let currentState = {
-      x: spritePosition.x,
-      y: spritePosition.y,
-      rotation: spriteRotation
-    };
+    // Create animation promises for all sprites that have scripts
+    const animationPromises = sprites
+      .filter(sprite => sprite.scripts.length > 0)
+      .map(sprite => runSpriteAnimations(sprite));
 
-    for (const script of scripts) {
-      // eslint-disable-next-line no-loop-func
-      const updateState = (newState) => {
-        currentState = newState;
-        setSpritePosition({ x: newState.x, y: newState.y });
-        setSpriteRotation(newState.rotation);
-      };
-
-      await executeScript(script, currentState, updateState);
-    }
+    // Run all sprite animations in parallel
+    await Promise.all(animationPromises);
 
     setIsRunning(false);
   };
 
-  const executeScript = async (script, currentState, updateState) => {
+  // Run animations for a single sprite
+  const runSpriteAnimations = async (sprite) => {
+    let currentState = {
+      x: sprite.position.x,
+      y: sprite.position.y,
+      rotation: sprite.rotation
+    };
+
+    for (const script of sprite.scripts) {
+      // eslint-disable-next-line no-loop-func
+      const updateState = (newState) => {
+        currentState = newState;
+        updateSpriteState(sprite.id, {
+          position: { x: newState.x, y: newState.y },
+          rotation: newState.rotation
+        });
+      };
+
+      await executeScript(script, currentState, updateState, sprite.id);
+    }
+  };
+
+  const executeScript = async (script, currentState, updateState, spriteId) => {
     const { type, params } = script;
 
     switch (type) {
@@ -75,7 +85,7 @@ function App() {
         let state = currentState;
         for (let i = 0; i < times; i++) {
           for (const childScript of script.children || []) {
-            state = await executeScript(childScript, state, updateState);
+            state = await executeScript(childScript, state, updateState, spriteId);
           }
         }
         return state;
@@ -83,17 +93,17 @@ function App() {
       case 'say':
         const sayMessage = params.message || 'Hello!';
         const sayDuration = parseFloat(params.seconds) || 2;
-        setSpriteMessage({ text: sayMessage, type: 'say' });
+        updateSpriteState(spriteId, { message: { text: sayMessage, type: 'say' } });
         await new Promise(resolve => setTimeout(resolve, sayDuration * 1000));
-        setSpriteMessage({ text: '', type: '' });
+        updateSpriteState(spriteId, { message: { text: '', type: '' } });
         return currentState;
 
       case 'think':
         const thinkMessage = params.message || 'Hmm...';
         const thinkDuration = parseFloat(params.seconds) || 2;
-        setSpriteMessage({ text: thinkMessage, type: 'think' });
+        updateSpriteState(spriteId, { message: { text: thinkMessage, type: 'think' } });
         await new Promise(resolve => setTimeout(resolve, thinkDuration * 1000));
-        setSpriteMessage({ text: '', type: '' });
+        updateSpriteState(spriteId, { message: { text: '', type: '' } });
         return currentState;
 
       default:
@@ -153,36 +163,20 @@ function App() {
   return (
     <div className="h-screen flex flex-col bg-gradient-to-br from-[#667eea] to-[#764ba2] font-['Helvetica_Neue',Helvetica,Arial,sans-serif]">
       <header className="bg-gradient-to-r from-[#4C97FF] to-[#3373CC] text-white px-8 py-4 flex justify-between items-center shadow-md">
-        <div className="flex gap-2.5">
-          <button
-            onClick={runAnimations}
-            disabled={isRunning || scripts.length === 0}
-            className="bg-[#00C853] text-white border-none px-5 py-2.5 rounded-md text-sm font-semibold cursor-pointer transition-all duration-200 flex items-center gap-1.5 hover:bg-[#00A344] hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 disabled:bg-[#cccccc] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            ▶ Run
-          </button>
-          <button
-            onClick={resetSprite}
-            disabled={isRunning}
-            className="bg-[#FF6680] text-white border-none px-5 py-2.5 rounded-md text-sm font-semibold cursor-pointer transition-all duration-200 flex items-center gap-1.5 hover:bg-[#FF4468] hover:-translate-y-0.5 hover:shadow-lg active:translate-y-0 disabled:bg-[#cccccc] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            ⟲ Reset
-          </button>
-        </div>
+        <h1 className="text-2xl font-bold">Scratch Clone</h1>
       </header>
-      <div className="flex-1 grid grid-cols-[280px_1fr_1000px] gap-6 overflow-hidden p-6 md:grid-cols-[250px_1fr_700px] max-md:grid-cols-1 max-md:grid-rows-[auto_auto_1fr]">
+      <div className="flex-1 grid grid-cols-[280px_1fr_700px] gap-6 overflow-hidden p-6 max-xl:grid-cols-[250px_1fr_600px] max-lg:grid-cols-[200px_1fr_500px] max-md:grid-cols-1 max-md:grid-rows-[auto_auto_1fr]">
         <BlocksPalette onBlockClick={addScript} />
         <ScriptArea
-          scripts={scripts}
+          scripts={selectedSprite?.scripts || []}
           onRemove={removeScript}
           onUpdate={updateScript}
           onAdd={addScript}
           onReorder={reorderScripts}
         />
         <PreviewArea
-          position={spritePosition}
-          rotation={spriteRotation}
-          message={spriteMessage}
+          onPlayAll={runAllAnimations}
+          onResetAll={resetAllSprites}
         />
       </div>
     </div>
