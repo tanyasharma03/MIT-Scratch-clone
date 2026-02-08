@@ -10,13 +10,16 @@ function App() {
     spritePosition,
     spriteRotation,
     isRunning,
+    spriteMessage,
     addScript,
     removeScript,
     updateScript,
+    reorderScripts,
     resetSprite,
     setSpritePosition,
     setSpriteRotation,
-    setIsRunning
+    setIsRunning,
+    setSpriteMessage
   } = useContext(ScriptContext);
 
   const runAnimations = async () => {
@@ -76,6 +79,22 @@ function App() {
           }
         }
         return state;
+
+      case 'say':
+        const sayMessage = params.message || 'Hello!';
+        const sayDuration = parseFloat(params.seconds) || 2;
+        setSpriteMessage({ text: sayMessage, type: 'say' });
+        await new Promise(resolve => setTimeout(resolve, sayDuration * 1000));
+        setSpriteMessage({ text: '', type: '' });
+        return currentState;
+
+      case 'think':
+        const thinkMessage = params.message || 'Hmm...';
+        const thinkDuration = parseFloat(params.seconds) || 2;
+        setSpriteMessage({ text: thinkMessage, type: 'think' });
+        await new Promise(resolve => setTimeout(resolve, thinkDuration * 1000));
+        setSpriteMessage({ text: '', type: '' });
+        return currentState;
 
       default:
         return currentState;
@@ -157,10 +176,13 @@ function App() {
           scripts={scripts}
           onRemove={removeScript}
           onUpdate={updateScript}
+          onAdd={addScript}
+          onReorder={reorderScripts}
         />
         <PreviewArea
           position={spritePosition}
           rotation={spriteRotation}
+          message={spriteMessage}
         />
       </div>
     </div>

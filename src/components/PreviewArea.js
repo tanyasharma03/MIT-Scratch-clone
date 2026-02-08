@@ -1,4 +1,4 @@
-const PreviewArea = ({ position, rotation }) => {
+const PreviewArea = ({ position, rotation, message }) => {
   const SCRATCH_CAT_URL = "https://en.scratch-wiki.info/w/images/ScratchCat3.0.svg";
 
   return (
@@ -28,6 +28,45 @@ const PreviewArea = ({ position, rotation }) => {
               transform: `rotate(${rotation}deg)`
             }}
           />
+
+          {/* Speech/Think Bubble */}
+          {message.text && (
+            <div
+              className="absolute z-[3] pointer-events-none animate-[fadeIn_0.2s_ease-out]"
+              style={{
+                left: position.x + 110,
+                top: position.y - 10,
+              }}
+            >
+              {message.type === 'say' && (
+                <div className="relative">
+                  <div className="bg-white text-gray-800 px-4 py-2 rounded-2xl shadow-lg border-2 border-gray-300 min-w-[80px] max-w-[200px] text-sm font-medium">
+                    {message.text}
+                  </div>
+                  {/* Speech bubble tail */}
+                  <div
+                    className="absolute w-0 h-0 border-t-[12px] border-t-white border-r-[12px] border-r-transparent"
+                    style={{
+                      left: '-8px',
+                      top: '15px',
+                      filter: 'drop-shadow(-2px 0px 0px rgba(209, 213, 219, 1))'
+                    }}
+                  />
+                </div>
+              )}
+
+              {message.type === 'think' && (
+                <div className="relative">
+                  <div className="bg-white text-gray-800 px-4 py-2 rounded-[50%] shadow-lg border-2 border-gray-300 min-w-[80px] max-w-[200px] text-sm font-medium flex items-center justify-center aspect-[4/3]">
+                    {message.text}
+                  </div>
+                  {/* Thought bubble circles */}
+                  <div className="absolute w-3 h-3 bg-white rounded-full border-2 border-gray-300" style={{ left: '-15px', top: '30px' }} />
+                  <div className="absolute w-2 h-2 bg-white rounded-full border-2 border-gray-300" style={{ left: '-25px', top: '40px' }} />
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

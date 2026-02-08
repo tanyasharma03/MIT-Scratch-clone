@@ -7,9 +7,23 @@ function ScriptProvider({ children }) {
   const [spritePosition, setSpritePosition] = useState({ x: 0, y: 0 });
   const [spriteRotation, setSpriteRotation] = useState(0);
   const [isRunning, setIsRunning] = useState(false);
+  const [spriteMessage, setSpriteMessage] = useState({ text: '', type: '' }); // type: 'say' or 'think'
 
   const addScript = useCallback((block) => {
-    setScripts((prev) => [...prev, { ...block, id: Date.now() }]);
+    const newBlock = { ...block, id: Date.now() };
+    delete newBlock.insertAt; // Remove insertAt from the actual block
+
+    if (block.insertAt !== undefined) {
+      // Insert at specific position
+      setScripts((prev) => {
+        const newScripts = [...prev];
+        newScripts.splice(block.insertAt, 0, newBlock);
+        return newScripts;
+      });
+    } else {
+      // Add to end
+      setScripts((prev) => [...prev, newBlock]);
+    }
   }, []);
 
   const removeScript = useCallback((id) => {
@@ -24,6 +38,15 @@ function ScriptProvider({ children }) {
     );
   }, []);
 
+  const reorderScripts = useCallback((fromIndex, toIndex) => {
+    setScripts((prev) => {
+      const newScripts = [...prev];
+      const [removed] = newScripts.splice(fromIndex, 1);
+      newScripts.splice(toIndex, 0, removed);
+      return newScripts;
+    });
+  }, []);
+
   const resetSprite = useCallback(() => {
     setSpritePosition({ x: 0, y: 0 });
     setSpriteRotation(0);
@@ -34,13 +57,16 @@ function ScriptProvider({ children }) {
     spritePosition,
     spriteRotation,
     isRunning,
+    spriteMessage,
     setScripts,
     setSpritePosition,
     setSpriteRotation,
     setIsRunning,
+    setSpriteMessage,
     addScript,
     removeScript,
     updateScript,
+    reorderScripts,
     resetSprite,
   };
 
