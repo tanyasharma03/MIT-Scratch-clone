@@ -65,7 +65,8 @@ function App() {
     for (let i = 0; i < repeatCount; i++) {
       for (const script of scriptsToExecute) {
         // Create a closure to update both local and global sprite state
-        // eslint-disable-next-line no-loop-func (function created in loop but safely captures current state)
+        // Function created in loop but safely captures current state
+        // eslint-disable-next-line no-loop-func
         const updateState = (newState) => {
           currentState = newState;
           updateSpriteState(sprite.id, {
