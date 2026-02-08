@@ -42,17 +42,34 @@ function App() {
       rotation: sprite.rotation
     };
 
-    for (const script of sprite.scripts) {
-      // eslint-disable-next-line no-loop-func
-      const updateState = (newState) => {
-        currentState = newState;
-        updateSpriteState(sprite.id, {
-          position: { x: newState.x, y: newState.y },
-          rotation: newState.rotation
-        });
-      };
+    const scripts = sprite.scripts;
+    const scriptsToExecute = [];
+    let repeatCount = 1;
 
-      await executeScript(script, currentState, updateState, sprite.id);
+    for (let i = 0; i < scripts.length; i++) {
+      const script = scripts[i];
+
+      if (script.type === 'repeat') {
+        repeatCount = parseInt(script.params.times) || 1;
+      } else {
+        scriptsToExecute.push(script);
+      }
+    }
+
+    // Execute collected scripts with the repeat count
+    for (let i = 0; i < repeatCount; i++) {
+      for (const script of scriptsToExecute) {
+        // eslint-disable-next-line no-loop-func
+        const updateState = (newState) => {
+          currentState = newState;
+          updateSpriteState(sprite.id, {
+            position: { x: newState.x, y: newState.y },
+            rotation: newState.rotation
+          });
+        };
+
+        currentState = await executeScript(script, currentState, updateState, sprite.id);
+      }
     }
   };
 
