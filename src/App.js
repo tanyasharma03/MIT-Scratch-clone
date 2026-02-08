@@ -36,6 +36,7 @@ function App() {
 
   // Run animations for a single sprite
   const runSpriteAnimations = async (sprite) => {
+    // Initialize the current state from the sprite's starting position and rotation
     let currentState = {
       x: sprite.position.x,
       y: sprite.position.y,
@@ -46,20 +47,25 @@ function App() {
     const scriptsToExecute = [];
     let repeatCount = 1;
 
+    // First pass: separate repeat blocks from other scripts
+    // This allows top-level repeat blocks to wrap all subsequent scripts
     for (let i = 0; i < scripts.length; i++) {
       const script = scripts[i];
 
       if (script.type === 'repeat') {
+        // Extract the repeat count from the first repeat block found
         repeatCount = parseInt(script.params.times) || 1;
       } else {
+        // Collect all non-repeat scripts to execute
         scriptsToExecute.push(script);
       }
     }
 
-    // Execute collected scripts with the repeat count
+    // Second pass: execute collected scripts the specified number of times
     for (let i = 0; i < repeatCount; i++) {
       for (const script of scriptsToExecute) {
-        // eslint-disable-next-line no-loop-func
+        // Create a closure to update both local and global sprite state
+        // eslint-disable-next-line no-loop-func (function created in loop but safely captures current state)
         const updateState = (newState) => {
           currentState = newState;
           updateSpriteState(sprite.id, {
@@ -79,7 +85,10 @@ function App() {
     switch (type) {
       case 'move':
         const steps = parseInt(params.steps) || 0;
+        // Convert rotation from degrees to radians for trigonometric calculations
         const radians = (currentState.rotation * Math.PI) / 180;
+        // Calculate new position based on current rotation angle
+        // cos(angle) gives horizontal component, sin(angle) gives vertical component
         const newX = currentState.x + steps * Math.cos(radians);
         const newY = currentState.y + steps * Math.sin(radians);
         await animateMovement(currentState, { ...currentState, x: newX, y: newY }, updateState);
@@ -100,8 +109,11 @@ function App() {
       case 'repeat':
         const times = parseInt(params.times) || 1;
         let state = currentState;
+        // Execute all child scripts sequentially for each iteration
+        // State is passed through each execution to maintain position/rotation continuity
         for (let i = 0; i < times; i++) {
           for (const childScript of script.children || []) {
+            // Recursively execute each child script, updating state with each execution
             state = await executeScript(childScript, state, updateState, spriteId);
           }
         }
