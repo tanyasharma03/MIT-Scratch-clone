@@ -1,0 +1,13 @@
+{
+  "files": {
+    "main.css": "/tanyasharma03/MIT-Scratch-clone/static/css/main.e8231348.css",
+    "main.js": "/tanyasharma03/MIT-Scratch-clone/static/js/main.6d3baef0.js",
+    "index.html": "/tanyasharma03/MIT-Scratch-clone/index.html",
+    "main.e8231348.css.map": "/tanyasharma03/MIT-Scratch-clone/static/css/main.e8231348.css.map",
+    "main.6d3baef0.js.map": "/tanyasharma03/MIT-Scratch-clone/static/js/main.6d3baef0.js.map"
+  },
+  "entrypoints": [
+    "static/css/main.e8231348.css",
+    "static/js/main.6d3baef0.js"
+  ]
+}
