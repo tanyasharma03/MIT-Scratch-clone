@@ -1,13 +1,13 @@
 {
   "files": {
     "main.css": "/MIT-Scratch-clone/static/css/main.e8231348.css",
-    "main.js": "/MIT-Scratch-clone/static/js/main.6d3baef0.js",
+    "main.js": "/MIT-Scratch-clone/static/js/main.a350d330.js",
     "index.html": "/MIT-Scratch-clone/index.html",
     "main.e8231348.css.map": "/MIT-Scratch-clone/static/css/main.e8231348.css.map",
-    "main.6d3baef0.js.map": "/MIT-Scratch-clone/static/js/main.6d3baef0.js.map"
+    "main.a350d330.js.map": "/MIT-Scratch-clone/static/js/main.a350d330.js.map"
   },
   "entrypoints": [
     "static/css/main.e8231348.css",
-    "static/js/main.6d3baef0.js"
+    "static/js/main.a350d330.js"
   ]
 }
