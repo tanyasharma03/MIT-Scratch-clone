@@ -45,6 +45,7 @@ function ScriptProvider({ children }) {
   const [isRunning, setIsRunning] = useState(false);
   const [swappedPairs, setSwappedPairs] = useState({});
   const [isAnimating, setIsAnimating] = useState(false);
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
 
   // Get the currently selected sprite
   const selectedSprite = activeSprites.find(s => s.id === selectedSpriteId) || activeSprites[0];
@@ -234,10 +235,12 @@ function ScriptProvider({ children }) {
     selectedSprite,
     isRunning,
     isAnimating,
+    stageSize,
     setActiveSprites,
     setSelectedSpriteId,
     setIsRunning,
     setIsAnimating,
+    setStageSize,
     addScript,
     removeScript,
     updateScript,

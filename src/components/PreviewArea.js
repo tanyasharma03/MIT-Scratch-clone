@@ -1,4 +1,4 @@
-import { useContext, useState, useRef, useEffect, memo } from 'react';
+import { useContext, useState, useRef, useEffect, useLayoutEffect, memo } from 'react';
 import { ScriptContext } from '../context/ScriptContext';
 
 const ToggleButton = memo(function ToggleButton({ active, onClick, children }) {
@@ -49,6 +49,7 @@ const PreviewArea = ({ onPlayAll }) => {
     updateSpriteState,
     removeSprite,
     addSprite,
+    setStageSize,
   } = useContext(ScriptContext);
 
   const selectedSprite = activeSprites.find((s) => s.id === selectedSpriteId);
@@ -128,13 +129,24 @@ const PreviewArea = ({ onPlayAll }) => {
     };
   }, [isDragging]);
 
+  useLayoutEffect(() => {
+    const measureStage = () => {
+      if (stageRef.current) {
+        const rect = stageRef.current.getBoundingClientRect();
+        setStageSize({ width: rect.width, height: rect.height });
+      }
+    };
+    measureStage();
+    window.addEventListener('resize', measureStage);
+    return () => window.removeEventListener('resize', measureStage);
+  }, [setStageSize]);
+
   return (
     <div
-      ref={stageRef}
       className="w-full min-h-full overflow-auto bg-black border border-gray-800 rounded-xl shadow-lg py-8 px-8 relative text-gray-100 flex flex-col transition-all duration-300"
     >
       {/* Large Preview Area */}
-      <div className="relative flex-1 w-full min-h-[300px] flex items-center justify-center rounded-xl shadow-inner border border-gray-800 bg-white mb-2">
+      <div ref={stageRef} className="relative flex-1 w-full min-h-[300px] flex items-center justify-center rounded-xl shadow-inner border border-gray-800 bg-white mb-2">
         {activeSprites.map((sprite) => (
           <div key={sprite.id}>
             {/* Speech/Think Bubble */}

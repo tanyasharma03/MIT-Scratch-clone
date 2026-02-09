@@ -9,6 +9,7 @@ function App() {
     sprites,
     selectedSprite,
     isRunning,
+    stageSize,
     addScript,
     removeScript,
     updateScript,
@@ -18,6 +19,9 @@ function App() {
     setIsRunning,
     setIsAnimating,
   } = useContext(ScriptContext);
+
+  const SPRITE_SIZE = 100;
+  const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
 
   // Run animations for all sprites in parallel
   const runAllAnimations = async () => {
@@ -93,8 +97,10 @@ function App() {
         const radians = (currentState.rotation * Math.PI) / 180;
         // Calculate new position based on current rotation angle
         // cos(angle) gives horizontal component, sin(angle) gives vertical component
-        const newX = currentState.x + steps * Math.cos(radians);
-        const newY = currentState.y + steps * Math.sin(radians);
+        const maxX = Math.max(stageSize.width - SPRITE_SIZE, 0);
+        const maxY = Math.max(stageSize.height - SPRITE_SIZE, 0);
+        const newX = clamp(currentState.x + steps * Math.cos(radians), 0, maxX);
+        const newY = clamp(currentState.y + steps * Math.sin(radians), 0, maxY);
         await animateMovement(currentState, { ...currentState, x: newX, y: newY }, updateState);
         return { ...currentState, x: newX, y: newY };
 
@@ -107,8 +113,12 @@ function App() {
       case 'goto':
         const targetX = parseInt(params.x) || 0;
         const targetY = parseInt(params.y) || 0;
-        await animateMovement(currentState, { ...currentState, x: targetX, y: targetY }, updateState);
-        return { ...currentState, x: targetX, y: targetY };
+        const maxGotoX = Math.max(stageSize.width - SPRITE_SIZE, 0);
+        const maxGotoY = Math.max(stageSize.height - SPRITE_SIZE, 0);
+        const clampedX = clamp(targetX, 0, maxGotoX);
+        const clampedY = clamp(targetY, 0, maxGotoY);
+        await animateMovement(currentState, { ...currentState, x: clampedX, y: clampedY }, updateState);
+        return { ...currentState, x: clampedX, y: clampedY };
 
       case 'repeat':
         const times = parseInt(params.times) || 1;
@@ -148,13 +158,15 @@ function App() {
     return new Promise((resolve) => {
       const duration = 500;
       const startTime = Date.now();
+      const maxX = Math.max(stageSize.width - SPRITE_SIZE, 0);
+      const maxY = Math.max(stageSize.height - SPRITE_SIZE, 0);
 
       const animate = () => {
         const elapsed = Date.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
-        const currentX = from.x + (to.x - from.x) * progress;
-        const currentY = from.y + (to.y - from.y) * progress;
+        const currentX = clamp(from.x + (to.x - from.x) * progress, 0, maxX);
+        const currentY = clamp(from.y + (to.y - from.y) * progress, 0, maxY);
 
         updateState({ ...to, x: currentX, y: currentY });
 
