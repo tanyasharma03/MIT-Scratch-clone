@@ -18,10 +18,137 @@ function App() {
     updateSpriteState,
     setIsRunning,
     setIsAnimating,
+    setActiveSprites,
   } = useContext(ScriptContext);
 
   const SPRITE_SIZE = 100;
   const clamp = (value, min, max) => Math.min(Math.max(value, min), max);
+
+  // Calculate final position for a sprite based on its scripts (without animation)
+  const calculateFinalPosition = (sprite) => {
+    let state = {
+      x: sprite.position.x,
+      y: sprite.position.y,
+      rotation: sprite.rotation
+    };
+
+    const scripts = sprite.scripts;
+    const scriptsToExecute = [];
+    let repeatCount = 1;
+
+    // Separate repeat blocks from other scripts
+    for (const script of scripts) {
+      if (script.type === 'repeat') {
+        repeatCount = parseInt(script.params.times) || 1;
+      } else {
+        scriptsToExecute.push(script);
+      }
+    }
+
+    // Calculate final position after all scripts execute
+    for (let i = 0; i < repeatCount; i++) {
+      for (const script of scriptsToExecute) {
+        state = calculateScriptEndState(script, state);
+      }
+    }
+
+    return state;
+  };
+
+  // Calculate the end state of a single script
+  const calculateScriptEndState = (script, currentState) => {
+    const { type, params } = script;
+    const maxX = Math.max(stageSize.width - SPRITE_SIZE, 0);
+    const maxY = Math.max(stageSize.height - SPRITE_SIZE, 0);
+
+    switch (type) {
+      case 'move':
+        const steps = parseInt(params.steps) || 0;
+        const radians = (currentState.rotation * Math.PI) / 180;
+        const newX = clamp(currentState.x + steps * Math.cos(radians), 0, maxX);
+        const newY = clamp(currentState.y + steps * Math.sin(radians), 0, maxY);
+        return { ...currentState, x: newX, y: newY };
+
+      case 'turn':
+        const degrees = parseInt(params.degrees) || 0;
+        return { ...currentState, rotation: currentState.rotation + degrees };
+
+      case 'goto':
+        const targetX = clamp(parseInt(params.x) || 0, 0, maxX);
+        const targetY = clamp(parseInt(params.y) || 0, 0, maxY);
+        return { ...currentState, x: targetX, y: targetY };
+
+      case 'repeat':
+        const times = parseInt(params.times) || 1;
+        let state = currentState;
+        for (let i = 0; i < times; i++) {
+          for (const childScript of script.children || []) {
+            state = calculateScriptEndState(childScript, state);
+          }
+        }
+        return state;
+
+      default:
+        return currentState;
+    }
+  };
+
+  // Detect if two line segments intersect using cross product method
+  const doPathsCross = (start1, end1, start2, end2) => {
+    // If either path has no movement, they don't cross
+    if ((start1.x === end1.x && start1.y === end1.y) ||
+        (start2.x === end2.x && start2.y === end2.y)) {
+      return false;
+    }
+
+    const x1 = start1.x, y1 = start1.y;
+    const x2 = end1.x, y2 = end1.y;
+    const x3 = start2.x, y3 = start2.y;
+    const x4 = end2.x, y4 = end2.y;
+
+    const denom = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+
+    // Check for collinear segments (parallel or on same line)
+    if (Math.abs(denom) < 0.0001) {
+      // Check if segments are collinear by testing if all points are on the same line
+      const crossProduct1 = (x3 - x1) * (y2 - y1) - (y3 - y1) * (x2 - x1);
+      const crossProduct2 = (x4 - x1) * (y2 - y1) - (y4 - y1) * (x2 - x1);
+
+      // If not collinear, they're just parallel
+      if (Math.abs(crossProduct1) > 0.0001 || Math.abs(crossProduct2) > 0.0001) {
+        return false;
+      }
+
+      // Collinear - check if they overlap
+      // Project points onto the line and check overlap
+      const dx = x2 - x1;
+      const dy = y2 - y1;
+      const length = Math.sqrt(dx * dx + dy * dy);
+
+      if (length < 0.0001) return false;
+
+      // Project all points onto the line (using dot product)
+      const t1 = 0;
+      const t2 = 1;
+      const t3 = ((x3 - x1) * dx + (y3 - y1) * dy) / (length * length);
+      const t4 = ((x4 - x1) * dx + (y4 - y1) * dy) / (length * length);
+
+      // Check if the projected segments overlap
+      const min1 = Math.min(t1, t2);
+      const max1 = Math.max(t1, t2);
+      const min2 = Math.min(t3, t4);
+      const max2 = Math.max(t3, t4);
+
+      // Segments overlap if their ranges intersect
+      return max1 > min2 && max2 > min1;
+    }
+
+    const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / denom;
+    const u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / denom;
+
+    // Check if intersection point is within both line segments
+    return t >= 0 && t <= 1 && u >= 0 && u <= 1;
+  };
 
   // Run animations for all sprites in parallel
   const runAllAnimations = async () => {
@@ -29,20 +156,146 @@ function App() {
     setIsRunning(true);
     setIsAnimating(true);
 
-    // Create animation promises for all sprites that have scripts
-    const animationPromises = sprites
-      .filter(sprite => sprite.scripts.length > 0)
-      .map(sprite => runSpriteAnimations(sprite));
+    // Calculate final positions and detect path crossings
+    const spritesWithMovement = sprites.filter(sprite => sprite.scripts.length > 0);
+    const finalPositions = new Map();
+    const positionSwaps = new Map();
 
-    // Run all sprite animations in parallel
+    // Calculate final positions for all sprites
+    spritesWithMovement.forEach(sprite => {
+      const finalPos = calculateFinalPosition(sprite);
+      finalPositions.set(sprite.id, finalPos);
+    });
+
+    // Detect path crossings and swap scripts
+    const scriptsToSwap = [];
+
+    for (let i = 0; i < spritesWithMovement.length; i++) {
+      for (let j = i + 1; j < spritesWithMovement.length; j++) {
+        const sprite1 = spritesWithMovement[i];
+        const sprite2 = spritesWithMovement[j];
+
+        const start1 = { x: sprite1.position.x, y: sprite1.position.y };
+        const end1 = finalPositions.get(sprite1.id);
+        const start2 = { x: sprite2.position.x, y: sprite2.position.y };
+        const end2 = finalPositions.get(sprite2.id);
+
+        // If paths cross, mark scripts for swapping
+        const pathsCross = doPathsCross(start1, end1, start2, end2);
+        console.log('Paths cross?', pathsCross);
+
+        if (pathsCross) {
+          console.log('COLLISION DETECTED - Swapping scripts!');
+          scriptsToSwap.push({ id1: sprite1.id, id2: sprite2.id });
+          // Also swap their destination positions
+          positionSwaps.set(sprite1.id, end2);
+          positionSwaps.set(sprite2.id, end1);
+        }
+      }
+    }
+
+    // Create a map of swapped scripts for immediate use
+    const swappedScripts = new Map();
+    for (const swap of scriptsToSwap) {
+      const sprite1 = spritesWithMovement.find(s => s.id === swap.id1);
+      const sprite2 = spritesWithMovement.find(s => s.id === swap.id2);
+      if (sprite1 && sprite2) {
+        swappedScripts.set(swap.id1, sprite2.scripts);
+        swappedScripts.set(swap.id2, sprite1.scripts);
+      }
+    }
+
+    // Swap scripts in the sprite state atomically for all crossing pairs
+    if (scriptsToSwap.length > 0) {
+      setActiveSprites((prevSprites) => {
+        return prevSprites.map((sprite) => {
+          // Check if this sprite is involved in any swap
+          for (const swap of scriptsToSwap) {
+            if (sprite.id === swap.id1) {
+              const otherSprite = prevSprites.find(s => s.id === swap.id2);
+              return { ...sprite, scripts: otherSprite?.scripts || sprite.scripts };
+            }
+            if (sprite.id === swap.id2) {
+              const otherSprite = prevSprites.find(s => s.id === swap.id1);
+              return { ...sprite, scripts: otherSprite?.scripts || sprite.scripts };
+            }
+          }
+          return sprite;
+        });
+      });
+    }
+
+    // Run animations - if scripts were swapped, continue with swapped scripts
+    const animationPromises = spritesWithMovement.map(sprite => {
+      const hasSwap = swappedScripts.has(sprite.id);
+
+      if (hasSwap) {
+        // First animate to the swapped position, then execute swapped scripts
+        return runSpriteWithCollision(sprite, positionSwaps.get(sprite.id), swappedScripts.get(sprite.id));
+      } else {
+        // Normal animation without collision
+        const targetPosition = finalPositions.get(sprite.id);
+        return runSpriteAnimations(sprite, targetPosition);
+      }
+    });
+
     await Promise.all(animationPromises);
 
     setIsAnimating(false);
     setIsRunning(false);
   };
 
+  // Run sprite animation when collision occurs - swap to other position then execute swapped scripts
+  const runSpriteWithCollision = async (sprite, swapPosition, newScripts) => {
+    // Initialize the current state from the sprite's starting position
+    let currentState = {
+      x: sprite.position.x,
+      y: sprite.position.y,
+      rotation: sprite.rotation
+    };
+
+    const updateState = (newState) => {
+      currentState = newState;
+      updateSpriteState(sprite.id, {
+        position: { x: newState.x, y: newState.y },
+        rotation: newState.rotation
+      });
+    };
+
+    // First, animate to the swap position (where paths crossed)
+    await animateMovement(currentState, swapPosition, updateState);
+
+    // Now execute the swapped scripts from the swap position
+    const scriptsToExecute = [];
+    let repeatCount = 1;
+
+    for (const script of newScripts) {
+      if (script.type === 'repeat') {
+        repeatCount = parseInt(script.params.times) || 1;
+      } else {
+        scriptsToExecute.push(script);
+      }
+    }
+
+    // Execute the swapped scripts
+    for (let i = 0; i < repeatCount; i++) {
+      for (const script of scriptsToExecute) {
+        // eslint-disable-next-line no-loop-func
+        const scriptUpdateState = (newState) => {
+          currentState = newState;
+          updateSpriteState(sprite.id, {
+            position: { x: newState.x, y: newState.y },
+            rotation: newState.rotation
+          });
+        };
+
+        currentState = await executeScript(script, currentState, scriptUpdateState, sprite.id);
+      }
+    }
+  };
+
   // Run animations for a single sprite
-  const runSpriteAnimations = async (sprite) => {
+  const runSpriteAnimations = async (sprite, targetPosition = null) => {
     // Initialize the current state from the sprite's starting position and rotation
     let currentState = {
       x: sprite.position.x,
@@ -66,6 +319,21 @@ function App() {
         // Collect all non-repeat scripts to execute
         scriptsToExecute.push(script);
       }
+    }
+
+    // If a target position override is provided (due to path crossing),
+    // animate directly to that position instead of executing scripts
+    if (targetPosition) {
+      const updateState = (newState) => {
+        currentState = newState;
+        updateSpriteState(sprite.id, {
+          position: { x: newState.x, y: newState.y },
+          rotation: newState.rotation
+        });
+      };
+
+      await animateMovement(currentState, targetPosition, updateState);
+      return;
     }
 
     // Second pass: execute collected scripts the specified number of times
