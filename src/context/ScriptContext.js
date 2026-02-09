@@ -44,6 +44,7 @@ function ScriptProvider({ children }) {
   const [selectedSpriteId, setSelectedSpriteId] = useState('tom-default');
   const [isRunning, setIsRunning] = useState(false);
   const [swappedPairs, setSwappedPairs] = useState({});
+  const [isAnimating, setIsAnimating] = useState(false);
 
   // Get the currently selected sprite
   const selectedSprite = activeSprites.find(s => s.id === selectedSpriteId) || activeSprites[0];
@@ -220,10 +221,10 @@ function ScriptProvider({ children }) {
   }, [swappedPairs]);
 
   useEffect(() => {
-    if (activeSprites.length >= 2) {
+    if (activeSprites.length >= 2 && isAnimating) {
       swapIfCollision(activeSprites);
     }
-  }, [activeSprites, swapIfCollision]);
+  }, [activeSprites, swapIfCollision, isAnimating]);
 
   const value = {
     spriteTemplates: SPRITE_TEMPLATES,
@@ -232,9 +233,11 @@ function ScriptProvider({ children }) {
     selectedSpriteId,
     selectedSprite,
     isRunning,
+    isAnimating,
     setActiveSprites,
     setSelectedSpriteId,
     setIsRunning,
+    setIsAnimating,
     addScript,
     removeScript,
     updateScript,

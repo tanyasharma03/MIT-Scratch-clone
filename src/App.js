@@ -16,12 +16,14 @@ function App() {
     resetAllSprites,
     updateSpriteState,
     setIsRunning,
+    setIsAnimating,
   } = useContext(ScriptContext);
 
   // Run animations for all sprites in parallel
   const runAllAnimations = async () => {
     if (isRunning) return;
     setIsRunning(true);
+    setIsAnimating(true);
 
     // Create animation promises for all sprites that have scripts
     const animationPromises = sprites
@@ -31,6 +33,7 @@ function App() {
     // Run all sprite animations in parallel
     await Promise.all(animationPromises);
 
+    setIsAnimating(false);
     setIsRunning(false);
   };
 
